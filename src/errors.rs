@@ -1,6 +1,6 @@
 use thiserror::Error;
 
-#[derive(Error, Debug)]
+#[derive(Error, Clone, Debug)]
 pub enum ErnieError {
     #[error("GetResponseError: {0}")]
     GetResponseError(String),
