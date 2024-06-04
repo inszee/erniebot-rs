@@ -135,6 +135,7 @@ impl ChatEndpoint {
         options: &Vec<ChatOpt>,
     ) -> Result<StreamResponse, ErnieError> {
         let body = ChatEndpoint::generate_body(messages, options, true)?;
+        log::debug!("ernie chat body: {:?}",body);
         let client = reqwest::Client::new();
         let mut event_source = client
             .post(self.url.as_str())
