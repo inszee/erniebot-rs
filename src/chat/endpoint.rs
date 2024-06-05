@@ -135,7 +135,7 @@ impl ChatEndpoint {
         options: &Vec<ChatOpt>,
     ) -> Result<StreamResponse, ErnieError> {
         let body = ChatEndpoint::generate_body(messages, options, true)?;
-        log::debug!("ernie chat body: {:?}",body);
+        log::debug!("ernie chat body: {:?}", body);
         let client = reqwest::Client::new();
         let mut event_source = client
             .post(self.url.as_str())
@@ -148,7 +148,8 @@ impl ChatEndpoint {
         tokio::spawn(async move {
             while let Some(event) = event_source.next().await {
                 if event.is_err() {
-                    log::error!("astream event is_err(): {}",event.unwrap_err());
+                    log::error!("astream event is_err(): {}", event.unwrap_err());
+                    drop(sender);
                     break;
                 }
                 let event = event.unwrap();
@@ -159,10 +160,14 @@ impl ChatEndpoint {
                         match serde_json::from_str(data) {
                             Ok(value) => {
                                 let response = Response::new(value);
-                                sender.send(response).unwrap();
+                                if let Err(err) = sender.send(response) {
+                                    log::error!("astream message_event mpsc send err (): {}", err);
+                                    drop(sender);
+                                    break;
+                                }
                             }
                             Err(err) => {
-                                log::error!("astream message_event is_err(): {}",err);
+                                log::error!("astream message_event serde_json err(): {}", err);
                                 break;
                             }
                         }
