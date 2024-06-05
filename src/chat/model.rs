@@ -14,6 +14,15 @@ pub enum ChatModel {
     #[strum(serialize = "ernie-3.5-128k")]
     #[serde(rename = "ernie-3.5-128k")]
     ErnieBot128K,
+    #[strum(serialize = "ernie_speed")]
+    #[serde(rename = "ernie_speed")]
+    ErnieSpeed,
+    #[strum(serialize = "ernie-speed-128k")]
+    #[serde(rename = "ernie-speed-128k")]
+    ErnieSpeed128K,
+    #[strum(serialize = "ernie-func-8k")]
+    #[serde(rename = "ernie-func-8k")]
+    ErnieFunc,
     #[strum(serialize = "completions_pro")]
     #[serde(rename = "completions_pro")]
     Ernie40,

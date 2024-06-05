@@ -148,6 +148,7 @@ impl ChatEndpoint {
         tokio::spawn(async move {
             while let Some(event) = event_source.next().await {
                 if event.is_err() {
+                    log::error!("astream event is_err(): {}",event.unwrap_err());
                     break;
                 }
                 let event = event.unwrap();
@@ -160,7 +161,8 @@ impl ChatEndpoint {
                                 let response = Response::new(value);
                                 sender.send(response).unwrap();
                             }
-                            Err(_) => {
+                            Err(err) => {
+                                log::error!("astream message_event is_err(): {}",err);
                                 break;
                             }
                         }
