@@ -7,6 +7,7 @@ use crate::errors::ErnieError;
 use crate::utils::{build_url, get_access_token};
 use json_value_merge::Merge;
 use reqwest_eventsource::{Event, RequestBuilderExt};
+use reqwest::header::{HeaderMap, HeaderValue, CONTENT_TYPE};
 use serde_json::Value;
 use tokio_stream::StreamExt;
 use url::Url;
@@ -109,9 +110,11 @@ impl ChatEndpoint {
     ) -> Result<Response, ErnieError> {
         let body = ChatEndpoint::generate_body(messages, options, false)?;
         let client = reqwest::Client::new();
+        let mut headers = HeaderMap::new();
+        headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
         let response: Value = client
             .post(self.url.as_str())
-            .header("Content-Type", "application/json")
+            .headers(headers)
             .query(&[("access_token", self.access_token.as_str())])
             .json(&body)
             .send()
@@ -137,9 +140,11 @@ impl ChatEndpoint {
         let body = ChatEndpoint::generate_body(messages, options, true)?;
         log::debug!("ernie chat body: {:?}", body);
         let client = reqwest::Client::new();
+        let mut headers = HeaderMap::new();
+        headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
         let mut event_source = client
             .post(self.url.as_str())
-            .header("Content-Type", "application/json")
+            .headers(headers)
             .query(&[("access_token", self.access_token.as_str())])
             .json(&body)
             .eventsource()
