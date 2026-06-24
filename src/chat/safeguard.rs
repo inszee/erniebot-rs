@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use crate::errors::ErnieError;
 use crate::utils::{build_safe_gurad_url, get_safe_guard_tokens};
 use reqwest::header::{HeaderMap, HeaderValue, CONTENT_TYPE,AUTHORIZATION};
+use serde::{Serialize,Deserialize};
 use crate::chat::Response;
 use serde_json::Value;
 use url::Url;
@@ -16,6 +17,30 @@ static SAFE_GUARD_API_URL: &str = "https://afd.bj.baidubce.com/rcs/llm/input/ana
 pub struct SafeGuardEndpoint {
     url: Url,
     access_token: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SafeGuardResponse {
+    pub request_id: String,
+    pub ret_code: String,
+    pub ret_msg: String,
+    pub ret_data: RetData,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RetData {
+    pub action: i32,
+    pub is_safe: i32,
+    pub hit_type: String,
+    pub sub_hit_type: String,
+    pub lang_type: String,
+
+    #[serde(default)]
+    pub score: Option<f64>,
+
+    #[serde(default)]
+    pub default_answer: Option<String>,
 }
 
 impl SafeGuardEndpoint {

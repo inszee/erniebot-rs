@@ -7,6 +7,7 @@ mod response;
 mod safeguard;
 
 pub use endpoint::ChatEndpoint;
+pub use safeguard::{SafeGuardEndpoint,SafeGuardResponse,RetData};
 pub use function::{Example, Function, FunctionCall, ToolChoice};
 pub use message::{Message, Role};
 pub use model::ChatModel;
