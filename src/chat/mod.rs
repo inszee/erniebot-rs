@@ -4,6 +4,7 @@ mod message;
 mod model;
 mod option;
 mod response;
+mod safeguard;
 
 pub use endpoint::ChatEndpoint;
 pub use function::{Example, Function, FunctionCall, ToolChoice};

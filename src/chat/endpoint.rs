@@ -186,9 +186,19 @@ impl ChatEndpoint {
 
 #[cfg(test)]
 mod tests {
-    use crate::chat::{ChatEndpoint, ChatOpt, Message, Role};
+    use crate::chat::{ChatEndpoint, ChatOpt, Message, Role,response::Response};
     #[test]
     fn test_generate_body() {
+        let ak = r#"7501A8jgJK6bqO2syPGGjX5B"#.to_string();
+        let sk =  r#"OCmppa0lFGhbknd0lXU0kOWOB6HfUQj6"#.to_string();
+        std::env::set_var(
+            "QIANFAN_AK",
+            ak
+        );
+        std::env::set_var(
+            "QIANFAN_SK",
+            sk
+        );
         let messages = vec![Message {
             role: Role::User,
             content: "hello, I'm a user".to_string(),
@@ -202,5 +212,9 @@ mod tests {
         let result = ChatEndpoint::generate_body(&messages, &options, true).unwrap();
         let s = serde_json::to_string(&result).unwrap();
         println!("{}", s);
+        let chat_cli = ChatEndpoint::new(crate::chat::ChatModel::ErnieBot).unwrap();
+        let response = ChatEndpoint::invoke(&chat_cli, &messages, &options).unwrap();
+        let s2 = serde_json::to_string(&response.get_raw_response()).unwrap();
+        println!("{}",  s2);
     }
 }

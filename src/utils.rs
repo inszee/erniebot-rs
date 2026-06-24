@@ -5,6 +5,8 @@ use serde_json::Value;
 use std::env::var;
 use std::time::{Duration, SystemTime};
 use url::{ParseError, Url};
+use hmac::{Hmac, KeyInit as _, Mac};
+use sha2::Sha256;
 
 pub fn get_access_token() -> Result<String, ErnieError> {
     let url = "https://aip.baidubce.com/oauth/2.0/token";
@@ -75,19 +77,111 @@ pub fn build_url(url: &str, model: &str) -> Result<Url, ParseError> {
     Ok(joined)
 }
 
+pub fn build_safe_gurad_url(url: &str) -> Result<Url, ParseError> {
+    let base = Url::parse(url)?;
+    Ok(base)
+}
+
 pub fn base64_to_image(image_string: String) -> ImageResult<DynamicImage> {
     let bytes = BASE64_STANDARD.decode(image_string).unwrap();
     let img = image::load_from_memory(&bytes).unwrap();
     Ok(img)
 }
 
+type HmacSha256 = Hmac<Sha256>;
+
+fn hmac_sha256_hex(key: &str, data: &str) -> String {
+    let mut mac =
+        HmacSha256::new_from_slice(key.as_bytes()).expect("invalid key");
+
+    mac.update(data.as_bytes());
+
+    let result = mac.finalize();
+    let bytes = result.into_bytes();
+
+    hex::encode(bytes)
+}
+
+fn hmac_sha256_hex_bytes(key: &[u8], data: &str) -> String {
+    let mut mac =
+        HmacSha256::new_from_slice(key).expect("invalid key");
+
+    mac.update(data.as_bytes());
+
+    let result = mac.finalize();
+    let bytes = result.into_bytes();
+
+    hex::encode(bytes)
+}
+
+pub fn get_safe_guard_tokens(
+    ak: &str,
+    sk: &str,
+) -> Result<String,ErnieError> {
+    let path = r#"/rcs/llm/input/analyze"#.to_string();
+    let host = r#"afd.bj.baidubce.com"#.to_string();
+    let time_zone = chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
+    let expiration_in_seconds = 3600;
+
+    let auth_string_prefix = format!(
+        "bce-auth-v1/{}/{}/{}",
+        ak,
+        time_zone,
+        expiration_in_seconds
+    );
+
+    let canonical_request = format!(
+        "POST\n{}\n\nhost:{}",
+        path,
+        host
+    );
+
+    let mut mac =
+        HmacSha256::new_from_slice(sk.as_bytes()).unwrap();
+
+    mac.update(auth_string_prefix.as_bytes());
+
+    let signing_key_hex = hex::encode(mac.finalize().into_bytes());
+
+    let mut mac2 =
+        HmacSha256::new_from_slice(signing_key_hex.as_bytes()).unwrap();
+
+    mac2.update(canonical_request.as_bytes());
+
+    let signature = hex::encode(mac2.finalize().into_bytes());
+    
+    let authorization_header = format!(
+        "bce-auth-v1/{}/{}/{}/host/{}",
+        ak,
+        time_zone,
+        expiration_in_seconds,
+        signature
+    );
+
+    println!("authStringPrefix: {}", auth_string_prefix);
+    println!("canonicalRequest: {}", canonical_request);
+    println!("signingKey: {}", signing_key_hex);
+    println!("signature: {}", signature);
+    println!("authorizationHeader: {}", authorization_header);
+
+    Ok(authorization_header)
+}
+
 #[cfg(test)]
 mod tests {
-    use super::get_access_token;
+    use super::{get_safe_guard_tokens,get_access_token};
     /// before run the test, you should set the environment variables QIANFAN_AK and QIANFAN_SK
     #[test]
     fn test_get_access_token() {
         let access_token = get_access_token();
         println!("access_token: {:?}", access_token);
+    }
+
+     #[test]
+    fn test_get_safe_guard_tokens() {
+        let ak = r#""#;
+        let sk = r#""#;
+        let auth = get_safe_guard_tokens(ak,sk).unwrap();
+        println!("access_token: {:?}", auth);
     }
 }
