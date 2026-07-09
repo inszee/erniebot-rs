@@ -4,30 +4,33 @@ use super::option::ChatOpt;
 use super::response::{Response, Responses, StreamResponse};
 
 use crate::errors::ErnieError;
-use crate::utils::{build_url, get_access_token};
+use crate::utils::{build_safe_gurad_url, build_url, get_access_token};
 use json_value_merge::Merge;
 use reqwest_eventsource::{Event, RequestBuilderExt};
-use reqwest::header::{HeaderMap, HeaderValue, CONTENT_TYPE};
+use reqwest::header::{AUTHORIZATION, CONTENT_TYPE, HeaderMap, HeaderValue};
 use serde_json::Value;
 use tokio_stream::StreamExt;
 use url::Url;
 
-static CHAT_API_URL: &str = "https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop/chat/";
-
+// static CHAT_API_URL: &str = "https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop/chat/";
+static CHAT_API_URL: &str = "https://qianfan.baidubce.com/v2/chat/completions";
 /** ChatEndpoint is a struct that represents the chat endpoint of erniebot API
 */
 #[derive(Debug, Clone)]
 pub struct ChatEndpoint {
     url: Url,
     access_token: String,
+    model: String,
 }
 
 impl ChatEndpoint {
     /// create a new chat instance using pre-defined model
-    pub fn new(model: ChatModel) -> Result<Self, ErnieError> {
+    pub fn new(model: ChatModel,access_token:String) -> Result<Self, ErnieError> {
         Ok(ChatEndpoint {
-            url: build_url(CHAT_API_URL, model.to_string().as_str())?,
-            access_token: get_access_token()?,
+            // url: build_url(CHAT_API_URL, model.to_string().as_str())?,
+            url: build_safe_gurad_url(CHAT_API_URL)?,
+            model: model.to_string(),
+            access_token: access_token,
         })
     }
 
@@ -35,17 +38,21 @@ impl ChatEndpoint {
     pub fn new_with_custom_endpoint(endpoint: &str) -> Result<Self, ErnieError> {
         Ok(ChatEndpoint {
             url: build_url(CHAT_API_URL, endpoint)?,
+            model: endpoint.to_string(),
             access_token: get_access_token()?,
         })
     }
 
     fn generate_body(
+        model: String,
         messages: &Vec<Message>,
         options: &Vec<ChatOpt>,
         stream: bool,
     ) -> Result<serde_json::Value, ErnieError> {
         let mut body = serde_json::json!({
+            "model": model,
             "messages": messages,
+            "web_search": {"enable":true,"enable_citation":false}
         });
         let options_array = serde_json::json!(options).as_array().cloned();
         if options_array.is_none() {
@@ -69,10 +76,11 @@ impl ChatEndpoint {
         messages: &Vec<Message>,
         options: &Vec<ChatOpt>,
     ) -> Result<Response, ErnieError> {
-        let body = ChatEndpoint::generate_body(messages, options, false)?;
+        let body = ChatEndpoint::generate_body(self.model.clone(),messages, options, false)?;
         let response: Value = ureq::post(self.url.as_str())
             .set("Content-Type", "application/json")
-            .query("access_token", self.access_token.as_str())
+            .set("Authorization", format!("Bearer {}",self.access_token).as_str())
+            // .query("access_token", self.access_token.as_str())
             .send_json(body)
             .map_err(|e| ErnieError::InvokeError(e.to_string()))?
             .into_json()
@@ -90,10 +98,10 @@ impl ChatEndpoint {
         messages: &Vec<Message>,
         options: &Vec<ChatOpt>,
     ) -> Result<Responses, ErnieError> {
-        let body = ChatEndpoint::generate_body(messages, options, true)?;
+        let body = ChatEndpoint::generate_body(self.model.clone(),messages, options, true)?;
         let response: String = ureq::post(self.url.as_str())
             .set("Content-Type", "application/json")
-            .query("access_token", self.access_token.as_str())
+            .set("Authorization", format!("Bearer {}",self.access_token).as_str())
             .send_json(body)
             .map_err(|e| ErnieError::InvokeError(e.to_string()))?
             .into_string()
@@ -108,14 +116,15 @@ impl ChatEndpoint {
         messages: &Vec<Message>,
         options: &Vec<ChatOpt>,
     ) -> Result<Response, ErnieError> {
-        let body = ChatEndpoint::generate_body(messages, options, false)?;
+        let body = ChatEndpoint::generate_body(self.model.clone(),messages, options, false)?;
         let client = reqwest::Client::new();
         let mut headers = HeaderMap::new();
         headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
+        headers.insert(AUTHORIZATION, HeaderValue::from_str(format!("Bearer {}",self.access_token).as_str()).unwrap());
         let response: Value = client
             .post(self.url.as_str())
             .headers(headers)
-            .query(&[("access_token", self.access_token.as_str())])
+            // .query(&[("access_token", self.access_token.as_str())])
             .json(&body)
             .send()
             .await
@@ -137,15 +146,17 @@ impl ChatEndpoint {
         messages: &Vec<Message>,
         options: &Vec<ChatOpt>,
     ) -> Result<StreamResponse, ErnieError> {
-        let body = ChatEndpoint::generate_body(messages, options, true)?;
+        let body = ChatEndpoint::generate_body(self.model.clone(),messages, options, true)?;
         log::debug!("ernie chat body: {:?}", body);
         let client = reqwest::Client::new();
         let mut headers = HeaderMap::new();
         headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
+        headers.insert(AUTHORIZATION, HeaderValue::from_str(format!("Bearer {}",self.access_token).as_str()).unwrap());
+
         let mut event_source = client
             .post(self.url.as_str())
             .headers(headers)
-            .query(&[("access_token", self.access_token.as_str())])
+            // .query(&[("access_token", self.access_token.as_str())])
             .json(&body)
             .eventsource()
             .map_err(|e| ErnieError::StreamError(e.to_string()))?;
@@ -187,18 +198,9 @@ impl ChatEndpoint {
 #[cfg(test)]
 mod tests {
     use crate::chat::{ChatEndpoint, ChatOpt, Message, Role,response::Response};
+    use futures_util::StreamExt;
     #[test]
     fn test_generate_body() {
-        let ak = r#"7501A8jgJK6bqO2syPGGjX5B"#.to_string();
-        let sk =  r#"OCmppa0lFGhbknd0lXU0kOWOB6HfUQj6"#.to_string();
-        std::env::set_var(
-            "QIANFAN_AK",
-            ak
-        );
-        std::env::set_var(
-            "QIANFAN_SK",
-            sk
-        );
         let messages = vec![Message {
             role: Role::User,
             content: "hello, I'm a user".to_string(),
@@ -209,12 +211,47 @@ mod tests {
             ChatOpt::TopP(0.5),
             ChatOpt::TopK(50),
         ];
-        let result = ChatEndpoint::generate_body(&messages, &options, true).unwrap();
+        let result = ChatEndpoint::generate_body(crate::chat::ChatModel::Ernie45Turbo128K.to_string(),&messages, &options, true).unwrap();
         let s = serde_json::to_string(&result).unwrap();
         println!("{}", s);
-        let chat_cli = ChatEndpoint::new(crate::chat::ChatModel::ErnieBot).unwrap();
+        let chat_cli = ChatEndpoint::new(crate::chat::ChatModel::Ernie45Turbo128K,r#""#.to_string()).unwrap();
         let response = ChatEndpoint::invoke(&chat_cli, &messages, &options).unwrap();
         let s2 = serde_json::to_string(&response.get_raw_response()).unwrap();
         println!("{}",  s2);
+    }
+
+    #[test]
+    fn test_astream() {
+        let rt = tokio::runtime::Runtime::new().unwrap();
+
+        rt.block_on(async {
+                let messages = vec![Message {
+                role: Role::User,
+                content: "现在几点了？".to_string(),
+                ..Default::default()
+            }];
+            let options = vec![
+                ChatOpt::Temperature(0.5),
+                ChatOpt::TopP(0.5),
+                ChatOpt::TopK(50),
+            ];
+            let result = ChatEndpoint::generate_body(crate::chat::ChatModel::Ernie45Turbo128K.to_string(),&messages, &options, true).unwrap();
+            let s = serde_json::to_string(&result).unwrap();
+            println!("json body: {}", s);
+            let chat_cli = ChatEndpoint::new(crate::chat::ChatModel::Ernie45Turbo128K,r#""#.to_string()).unwrap();
+            match ChatEndpoint::astream(&chat_cli, &messages, &options).await {
+                Ok(stream) => {
+                    let mut pinned_stream = Box::pin(stream);
+                    while let Some(response_chunk) = pinned_stream.next().await {
+                        print!("{}",response_chunk.get_chat_result().unwrap_or_default());
+                    }
+                }
+                Err(err) => {
+                    println!("err: {}", err.to_string());
+                }
+            }
+            // let s2 = serde_json::to_string(&response.get_raw_response()).unwrap();
+            // println!("{}",  s2);
+        });
     }
 }

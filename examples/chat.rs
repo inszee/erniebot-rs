@@ -5,7 +5,7 @@ use tokio::runtime::Runtime;
 use tokio_stream::StreamExt;
 
 fn test_invoke() {
-    let chat = ChatEndpoint::new(ChatModel::ErnieBotTurbo).unwrap();
+    let chat = ChatEndpoint::new(ChatModel::Ernie45Turbo128K,r#""#.to_string()).unwrap();
     let messages = vec![
             Message {
                 role: Role::User,
@@ -24,7 +24,7 @@ fn test_invoke() {
 }
 
 fn test_stream() {
-    let chat = ChatEndpoint::new(ChatModel::ErnieBotTurbo).unwrap();
+    let chat = ChatEndpoint::new(ChatModel::Ernie45Turbo128K,r#""#.to_string()).unwrap();
     let messages = vec![
             Message {
                 role: Role::User,
@@ -45,7 +45,7 @@ fn test_stream() {
 }
 
 fn test_ainvoke() {
-    let chat = ChatEndpoint::new(ChatModel::ErnieBotTurbo).unwrap();
+    let chat = ChatEndpoint::new(ChatModel::Ernie45Turbo128K,r#""#.to_string()).unwrap();
     let messages = vec![
             Message {
                 role: Role::User,
@@ -61,7 +61,7 @@ fn test_ainvoke() {
 }
 
 fn test_astream() {
-    let chat = ChatEndpoint::new(ChatModel::ErnieBotTurbo).unwrap();
+    let chat = ChatEndpoint::new(ChatModel::Ernie45Turbo128K,r#""#.to_string()).unwrap();
     let messages = vec![
             Message {
                 role: Role::User,

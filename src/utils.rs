@@ -158,11 +158,11 @@ pub fn get_safe_guard_tokens(
         signature
     );
 
-    println!("authStringPrefix: {}", auth_string_prefix);
-    println!("canonicalRequest: {}", canonical_request);
-    println!("signingKey: {}", signing_key_hex);
-    println!("signature: {}", signature);
-    println!("authorizationHeader: {}", authorization_header);
+    // println!("authStringPrefix: {}", auth_string_prefix);
+    // println!("canonicalRequest: {}", canonical_request);
+    // println!("signingKey: {}", signing_key_hex);
+    // println!("signature: {}", signature);
+    // println!("authorizationHeader: {}", authorization_header);
 
     Ok(authorization_header)
 }

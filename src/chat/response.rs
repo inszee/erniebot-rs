@@ -32,17 +32,33 @@ impl Response {
 
     /// get the result of chat response
     pub fn get_chat_result(&self) -> Result<String, ErnieError> {
-        match self.raw_response.get("result") {
-            Some(result) => match result.as_str() {
-                Some(result_str) => Ok(result_str.to_string()),
-                None => Err(ErnieError::GetResponseError(
+        // 兼容非流式接口
+        if let Some(result) = self.raw_response.get("result") {
+            if let Some(result_str) = result.as_str() {
+                return Ok(result_str.to_string());
+            } else {
+                return Err(ErnieError::GetResponseError(
                     "result is not a string".to_string(),
-                )),
-            },
-            None => Err(ErnieError::GetResponseError(
-                "result is not found".to_string(),
-            )),
+                ));
+            }
         }
+
+        // 兼容流式接口
+        if let Some(content) = self
+            .raw_response
+            .get("choices")
+            .and_then(|v| v.as_array())
+            .and_then(|arr| arr.first())
+            .and_then(|choice| choice.get("delta"))
+            .and_then(|delta| delta.get("content"))
+            .and_then(|content| content.as_str())
+        {
+            return Ok(content.to_string());
+        }
+
+        Err(ErnieError::GetResponseError(
+            "Neither result nor choices[0].delta.content found".to_string(),
+        ))
     }
 
     /// get tokens used by prompt
@@ -131,6 +147,7 @@ impl Responses {
 pub struct StreamResponse {
     receiver: UnboundedReceiver<Response>,
 }
+
 impl StreamResponse {
     pub fn new() -> (mpsc::UnboundedSender<Response>, Self) {
         let (sender, receiver) = mpsc::unbounded_channel();
